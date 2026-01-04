@@ -8,7 +8,7 @@
 function calculateSimpleRevenue(purchase, _product) {
     const { discount, sale_price, quantity } = purchase;
 
-    const discountDecimal = discount / 100;
+    const discountDecimal = (discount / 100);
     const totalPrice = sale_price * quantity;
     const revenue = totalPrice * (1 - discountDecimal);
 
@@ -108,8 +108,8 @@ function analyzeSalesData(data, options) {
             const cost = product.purchase_price * item.quantity;
             const profit = revenue - cost;
 
-            seller.revenue += revenue;
-            seller.profit += profit;
+            seller.revenue += +revenue.toFixed(2);
+            seller.profit += +profit;
 
             if (!seller.products_sold[item.sku]) {
                 seller.products_sold[item.sku] = 0;
