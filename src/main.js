@@ -4,8 +4,15 @@
  * @param _product карточка товара
  * @returns {number}
  */
+
 function calculateSimpleRevenue(purchase, _product) {
-   // @TODO: Расчет выручки от операции
+    const { discount, sale_price, quantity } = purchase;
+
+    const discountDecimal = discount / 100;
+    const totalPrice = sale_price * quantity;
+    const revenue = totalPrice * (1 - discountDecimal);
+
+    return revenue;
 }
 
 /**
@@ -15,8 +22,26 @@ function calculateSimpleRevenue(purchase, _product) {
  * @param seller карточка продавца
  * @returns {number}
  */
+
 function calculateBonusByProfit(index, total, seller) {
-    // @TODO: Расчет бонуса от позиции в рейтинге
+    const { profit } = seller;
+    let bonus;
+    if (index === 0) {
+        bonus = profit * 0.15;
+    } else if (index === 1 || index === 2) {
+        bonus = profit * 0.10;
+    } else if (index === total - 1) {
+        bonus = 0;
+    } else {
+        bonus = profit * 0.05;
+    }
+
+    return bonus
+}
+
+const options = {
+    calculateRevenue: calculateSimpleRevenue,
+    calculateBonus: calculateBonusByProfit
 }
 
 /**
@@ -25,20 +50,93 @@ function calculateBonusByProfit(index, total, seller) {
  * @param options
  * @returns {{revenue, top_products, bonus, name, sales_count, profit, seller_id}[]}
  */
+
 function analyzeSalesData(data, options) {
-    // @TODO: Проверка входных данных
+    const { calculateRevenue, calculateBonus} = options;
 
-    // @TODO: Проверка наличия опций
+    if (
+        !data ||
+        !Array.isArray(data.products) ||
+        !Array.isArray(data.sellers) ||
+        !Array.isArray(data.purchase_records) ||
+        data.products.length === 0 ||
+        data.sellers.length === 0 ||
+        data.purchase_records.length === 0
+    ) {
+        throw new Error('Некорректные входные данные');
+    }
 
-    // @TODO: Подготовка промежуточных данных для сбора статистики
 
-    // @TODO: Индексация продавцов и товаров для быстрого доступа
+    if (
+        typeof calculateRevenue !== 'function' ||
+        typeof calculateBonus !== 'function' ||
+        typeof options !== 'object' ||
+        options === null
+    ) {
+        throw new Error('Чего-то не хватает');
+    }
 
-    // @TODO: Расчет выручки и прибыли для каждого продавца
 
-    // @TODO: Сортировка продавцов по прибыли
+    const sellerStats = data.sellers.map(seller => ({
+    id: seller.id,
+    name: `${seller.first_name} ${seller.last_name}`,
+    revenue: 0,
+    bonus: 0,
+    salesCount: 0,
+    profit: 0,
+    products_sold: {},
+    top_products: []
+    })); 
 
-    // @TODO: Назначение премий на основе ранжирования
+    const sellerIndex = sellerStats.reduce((acc, seller) => ({
+        ...acc,
+        [seller.id]: seller
+    }), {});
+    const productIndex = data.products.reduce((acc, product) => ({
+        ...acc,
+        [product.sku]: product
+    }), {})
 
-    // @TODO: Подготовка итоговой коллекции с нужными полями
+
+    data.purchase_records.forEach(record => { 
+        const seller = sellerIndex[record.seller_id]; 
+        seller.salesCount += 1;
+
+        record.items.forEach(item => {
+            const product = productIndex[item.sku];
+            const revenue = calculateRevenue(item, product);
+            const cost = product.purchase_price * item.quantity;
+            const profit = revenue - cost;
+
+            seller.revenue += revenue;
+            seller.profit += profit;
+
+            if (!seller.products_sold[item.sku]) {
+                seller.products_sold[item.sku] = 0;
+            }
+
+            seller.products_sold[item.sku] += item.quantity;
+        });
+    }); 
+
+    sellerStats.sort((a, b) => b.profit - a.profit)
+
+    sellerStats.forEach((seller, index) => {
+        seller.bonus = calculateBonus(index, sellerStats.length, seller);
+        seller.top_products = Object.entries(seller.products_sold)
+        .map(([sku, quantity]) => ({ sku, quantity }))
+        .sort((a, b) => b.quantity - a.quantity)
+        .slice(0, 10);
+    }) 
+
+    return sellerStats.map(seller => ({
+        seller_id: seller.id,
+        name: seller.name,
+        revenue: +seller.revenue.toFixed(2),
+        profit: +seller.profit.toFixed(2),
+        sales_count: seller.salesCount,
+        top_products: seller.top_products,
+        bonus: +seller.bonus.toFixed(2)
+    })); 
+
 }
